@@ -211,51 +211,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("I couldn't read any text from that image. Try a clearer picture!")
             return
 
-        # Match course codes like INE 331, MTH 203, MCE 216 — but NOT room codes
-        # Room codes have 3-4 chars but are followed by 3-4 digit numbers (e.g. ESB 1014, NAB1 006)
-        # Valid course codes: 3-4 letters, space, exactly 3 digits optionally followed by one letter
         course_pattern = re.compile(r'\b([A-Z]{2,4})\s+(\d{3}[A-Z]?)\b')
-        
-        # Match times like "9:30 am", "12:30 pm", "11:00 am"
         time_pattern = re.compile(r'(\d{1,2}:\d{2})\s*(am|pm)', re.IGNORECASE)
-        
-        # Match day columns from OCR — look for Monday/Tuesday etc. OR MW/TR patterns
-        day_pattern = re.compile(r'\b(Monday|Tuesday|Wednesday|Thursday|Friday|Mon|Tue|Wed|Thu|Fri|MW|TR|MWF)\b', re.IGNORECASE)
-
-        # Room number pattern to exclude — 3-4 letters followed by 4-digit number
-        room_pattern = re.compile(r'\b([A-Z]{2,4})\s*(\d{4})\b')
-        room_codes = {f"{m[0]} {m[1]}" for m in room_pattern.findall(extracted_text)}
-        # Also catch rooms like "NAB1 006", "SBA 1107" — 4+ digit rooms
-        room_codes2 = set(re.findall(r'\b(?:ESB|NAB|ERB|SBA|NAB1)[^\n]*', extracted_text))
-
-        all_course_matches = course_pattern.findall(extracted_text)
-        
-        # Filter out room codes — rooms tend to have 4-digit numbers, courses have 3-digit
         KNOWN_ROOM_PREFIXES = {'ESB', 'NAB', 'ERB', 'SBA', 'LIB', 'AUD', 'LAB', 'GYM', 'CLS'}
-        detected_courses = []
-        for prefix, num in all_course_matches:
-            if prefix in KNOWN_ROOM_PREFIXES:
-                continue  # skip room codes
-            if len(num) == 4:
-                continue  # 4-digit = room number, not course
-            course_code = f"{prefix} {num}"
-            # Strip section numbers like -01, -17 that OCR might merge
-            detected_courses.append(course_code)
 
-        detected_courses = list(dict.fromkeys(detected_courses))  # deduplicate, preserve order
+        lines = extracted_text.splitlines()
 
-        if not detected_courses:
-            await update.message.reply_text(
-                "I read the image but couldn't detect any course codes.\n\n"
-                f"Debug - Raw OCR snippet:\n`{extracted_text[:300]}`",
-                parse_mode="Markdown"
-            )
-            return
-
-        # Extract all times found
-        times_found = time_pattern.findall(extracted_text)
-        
-        # Convert "9:30 am" -> "09:30", "12:30 pm" -> "12:30", "3:30 pm" -> "15:30"
         def to_24h(t, meridiem):
             h, m = map(int, t.split(':'))
             if meridiem.lower() == 'pm' and h != 12:
@@ -264,7 +225,84 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 h = 0
             return f"{h:02d}:{m:02d}"
 
-        times_24h = [to_24h(t, mer) for t, mer in times_found]
+        # Build list of (line_index, time_24h)
+        time_positions = []
+        for i, line in enumerate(lines):
+            for t, mer in time_pattern.findall(line):
+                time_positions.append((i, to_24h(t, mer)))
+
+        # Build list of (line_index, course_code)
+        course_positions = []
+        for i, line in enumerate(lines):
+            for prefix, num in course_pattern.findall(line):
+                if prefix in KNOWN_ROOM_PREFIXES or len(num) == 4:
+                    continue
+                course_positions.append((i, f"{prefix} {num}"))
+
+        # Deduplicate keeping first occurrence
+        seen = set()
+        unique_course_positions = []
+        for pos, code in course_positions:
+            if code not in seen:
+                seen.add(code)
+                unique_course_positions.append((pos, code))
+
+        if not unique_course_positions:
+            await update.message.reply_text(
+                "I read the image but couldn't detect any course codes.\n\n"
+                f"Debug - Raw OCR snippet:\n`{extracted_text[:300]}`",
+                parse_mode="Markdown"
+            )
+            return
+
+        results_message = "🎓 *Your Spring 2026 Final Exams:*\n\n"
+        found_any = False
+
+        for course_line, course in unique_course_positions:
+            # Priority 1: Common exam
+            if course in COMMON_EXAMS:
+                start_dt, end_dt = COMMON_EXAMS[course]
+                link = make_google_calendar_link_exam(course, start_dt, end_dt)
+                results_message += f"🏆 *{course}* (Common Exam)\n[📅 Add to Google Calendar]({link})\n\n"
+                found_any = True
+                continue
+
+            # Priority 2: Find nearest time to this course line
+            if not time_positions:
+                results_message += f"❓ *{course}* — no times detected in image.\n\n"
+                continue
+
+            nearest_time = min(time_positions, key=lambda x: abs(x[0] - course_line))[1]
+
+            matched = False
+            for day_key in [("MW", nearest_time), ("TR", nearest_time)]:
+                if day_key in REGULAR_EXAMS:
+                    start_dt, end_dt = REGULAR_EXAMS[day_key]
+                    link = make_google_calendar_link_exam(course, start_dt, end_dt)
+                    day_label = "Mon/Wed" if day_key[0] == "MW" else "Tue/Thu"
+                    results_message += (
+                        f"📘 *{course}* ({day_label} {nearest_time})\n"
+                        f"[📅 Add to Google Calendar]({link})\n\n"
+                    )
+                    matched = True
+                    found_any = True
+                    break
+
+            if not matched:
+                results_message += f"❓ *{course}* ({nearest_time}) — not in exam schedule.\n\n"
+
+        if not found_any:
+            results_message += "No courses could be matched to the Spring 2026 exam schedule."
+
+        await update.message.reply_text(
+            results_message,
+            parse_mode="Markdown",
+            disable_web_page_preview=True
+        )
+
+    except Exception as e:
+        logger.error(f"Error processing image: {e}")
+        await update.message.reply_text(f"❌ Error: {type(e).__name__}: {e}")
 
         # Detect if timetable is MW or TR based on day names present in OCR
         has_monday = bool(re.search(r'\b(Monday|Mon)\b', extracted_text, re.IGNORECASE))
