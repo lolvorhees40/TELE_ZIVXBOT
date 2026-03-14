@@ -7,6 +7,7 @@ Random Picker & Timetable Telegram Bot
 - NEW: Extracts courses from an uploaded timetable image via OCR
 - NEW: Generates Google Calendar exam links based on Spring 2026 Schedule
 """
+import sys
 import os
 import random
 import logging
@@ -33,7 +34,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # IMPORTANT FOR WINDOWS USERS: Point this to your Tesseract installation!
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+if sys.platform == 'win32':
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # ── Bot Token ────────────────────────────────────────────────────────────────
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
