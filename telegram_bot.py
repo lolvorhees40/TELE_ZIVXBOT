@@ -244,7 +244,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("I couldn't detect any class times in the image. Try a clearer picture!")
             return
 
-        results_message = "🗓 *Your Spring 2026 Final Exam Slots:*\n\n"
+        results_message = "*Your Spring 2026 Final Exam Slots:*\n\n"
         found_any = False
 
         for time_24h in unique_times:
