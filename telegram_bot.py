@@ -255,7 +255,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     start_dt, end_dt = REGULAR_EXAMS[day_key]
                     link = make_google_calendar_link_exam(f"Final Exam", start_dt, end_dt)
                     day_label = "Mon/Wed" if day_key[0] == "MW" else "Tue/Thu"
-                    options.append(f"[📅 {day_label}]({link})")
+                    options.append(f"[ {day_label}]({link})")
 
             if options:
                 # Convert back to 12h for display
@@ -266,7 +266,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     display_h = 12
                 display_time = f"{display_h}:{m:02d} {meridiem}"
 
-                results_message += f"⏰ *{display_time}* class:\n"
+                results_message += f" *{display_time}* class:\n"
                 results_message += " · ".join(options) + "\n\n"
                 found_any = True
 
@@ -288,14 +288,14 @@ The output will look like:
 ```
 Your Spring 2026 Final Exam Slots:
 
-⏰ 9:30 am class:
-📅 Mon/Wed · 📅 Tue/Thu
+ 9:30 am class:
+ Mon/Wed ·  Tue/Thu
 
-⏰ 11:00 am class:
-📅 Mon/Wed · 📅 Tue/Thu
+ 11:00 am class:
+ Mon/Wed ·  Tue/Thu
 
-⏰ 12:30 pm class:
-📅 Mon/Wed · 📅 Tue/Thu
+ 12:30 pm class:
+ Mon/Wed ·  Tue/Thu
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Shared pick sender (works for both Message and CallbackQuery)
@@ -312,7 +312,7 @@ async def send_pick(target, cat_name: str, items: list):
 
     kb = InlineKeyboardMarkup([[
         InlineKeyboardButton("🔄 Pick again",       callback_data=f"cat:{cat_name}"),
-        InlineKeyboardButton("📅 Add to calendar",  callback_data=f"cal:{cat_name}:{chosen}"),
+        InlineKeyboardButton(" Add to calendar",  callback_data=f"cal:{cat_name}:{chosen}"),
     ]])
 
     if isinstance(target, Update):
@@ -475,7 +475,7 @@ async def calendar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     item = " ".join(context.args) if context.args else "My Event"
     context.user_data["pending_calendar_item"] = item
     await update.message.reply_text(
-        f"📅 *{item}*\nWhich day of the week should I schedule this?",
+        f" *{item}*\nWhich day of the week should I schedule this?",
         parse_mode="Markdown",
         reply_markup=days_keyboard()
     )
@@ -505,7 +505,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         item = parts[2] if len(parts) > 2 else "Event"
         context.user_data["pending_calendar_item"] = item
         await query.edit_message_text(
-            f"📅 Adding *{item}* to Google Calendar\nWhich day of the week?",
+            f" Adding *{item}* to Google Calendar\nWhich day of the week?",
             parse_mode="Markdown",
             reply_markup=days_keyboard()
         )
@@ -518,7 +518,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dt       = next_weekday(day_idx)
         link     = make_google_calendar_link(item, dt)
         await query.edit_message_text(
-            f"✅ *{item}*\n📅 {day_name}, {dt.strftime('%b %d %Y')}\n\n"
+            f"✅ *{item}*\n {day_name}, {dt.strftime('%b %d %Y')}\n\n"
             f"[➕ Open in Google Calendar]({link})",
             parse_mode="Markdown",
             disable_web_page_preview=True
