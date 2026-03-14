@@ -286,7 +286,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 The output will look like:
 ```
-🗓 Your Spring 2026 Final Exam Slots:
+Your Spring 2026 Final Exam Slots:
 
 ⏰ 9:30 am class:
 📅 Mon/Wed · 📅 Tue/Thu
