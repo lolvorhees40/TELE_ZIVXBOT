@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 # IMPORTANT FOR WINDOWS USERS: Point this to your Tesseract installation!
 if sys.platform == 'win32':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+else:
+    pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 
 # ── Bot Token ────────────────────────────────────────────────────────────────
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
