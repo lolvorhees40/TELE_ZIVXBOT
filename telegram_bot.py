@@ -274,21 +274,19 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             nearest_time = min(time_positions, key=lambda x: abs(x[0] - course_line))[1]
 
-            matched = False
+           options = []
             for day_key in [("MW", nearest_time), ("TR", nearest_time)]:
                 if day_key in REGULAR_EXAMS:
                     start_dt, end_dt = REGULAR_EXAMS[day_key]
                     link = make_google_calendar_link_exam(course, start_dt, end_dt)
                     day_label = "Mon/Wed" if day_key[0] == "MW" else "Tue/Thu"
-                    results_message += (
-                        f"📘 *{course}* ({day_label} {nearest_time})\n"
-                        f"[📅 Add to Google Calendar]({link})\n\n"
-                    )
-                    matched = True
-                    found_any = True
-                    break
+                    options.append(f"[📅 {day_label}]({link})")
 
-            if not matched:
+            if options:
+                results_message += f"📘 *{course}* ({nearest_time})\n"
+                results_message += " · ".join(options) + "\n\n"
+                found_any = True
+            else:
                 results_message += f"❓ *{course}* ({nearest_time}) — not in exam schedule.\n\n"
 
         if not found_any:
